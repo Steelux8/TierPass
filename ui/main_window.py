@@ -1,14 +1,16 @@
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QLineEdit, QProgressBar, QTextEdit, QCheckBox, QGroupBox
+from PyQt6.QtWidgets import (
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
+    QProgressBar, QTextEdit, QCheckBox, QGroupBox
+)
 from core.evaluate_password import evaluate_password
+from ui.entropy_chart import EntropyChart
+
+
 class MainWindow(QWidget):
     TOOLTIPS = {
         "guesses": (
             "🔐 Estimated number of guesses needed to crack the password, based on detected patterns and randomness.\n"
             "This number is independent of how fast guesses can be made."
-        ),
-
-        "calc_time": (
-            "⏱️ Estimated time to compute the password evaluation (not cracking time). Used to measure analysis speed, not attack speed."
         ),
 
         "online_throttled": (
@@ -27,6 +29,7 @@ class MainWindow(QWidget):
             "🧠 **How it works:** The attacker runs a brute-force or dictionary attack locally. No server involved — no login forms, no timeouts.\n"
             "💡 **Why it's slow:** Hashing functions like bcrypt are intentionally designed to take time per guess, slowing down attacks.\n"
             "🆚 **Compared to others:** Much faster than online guesses but slower than attacks on insecure hashes."
+
         ),
 
         "offline_fast": (
@@ -44,21 +47,40 @@ class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Password Strength Auditor - TierPass")
-        self.resize(500, 300)
+        self.resize(1000, 500)
 
+        # Outer layout
+        outer_layout = QHBoxLayout()
+
+        # Create layouts for each password section
+        self.sections = []
+        for i in range(2):
+            section = self.build_password_section(i)
+            outer_layout.addLayout(section["layout"])
+            self.sections.append(section)
+
+        self.setLayout(outer_layout)
+
+        # Initial update for both
+        self.update_feedback(0, "")
+        self.update_feedback(1, "")
+
+    def build_password_section(self, index: int):
         layout = QVBoxLayout()
 
-        self.label = QLabel("Enter your password:")
-        self.input = QLineEdit()
-        self.input.setEchoMode(QLineEdit.EchoMode.Normal)
+        label = QLabel(f"Enter password #{index + 1}:")
+        input_field = QLineEdit()
+        input_field.setEchoMode(QLineEdit.EchoMode.Normal)
+        input_field.setMaxLength(72)
+        input_field.textChanged.connect(lambda text, i=index: self.update_feedback(i, text))
 
-        self.progress = QProgressBar()
-        self.progress.setRange(0, 4)
+        progress = QProgressBar()
+        progress.setRange(0, 4)
 
-        self.result = QLabel("")
+        result = QLabel()
 
         # Create individual labels
-        self.labels = {
+        labels = {
             "guesses": QLabel(),
             "calc_time": QLabel(),
             "online_throttled": QLabel(),
@@ -67,82 +89,99 @@ class MainWindow(QWidget):
         }
 
         # Add tooltips
-        for key, label in self.labels.items():
-            label.setToolTip(self.TOOLTIPS.get(key, ""))
+        for key, label_widget in labels.items():
+            label_widget.setToolTip(self.TOOLTIPS.get(key, ""))
 
-        # Group all attack effort estimates together
-        crack_effort_group = QGroupBox("Password Crack Time Estimates")
+        crack_effort_group = QGroupBox("Crack Time Estimates")
         crack_effort_layout = QVBoxLayout()
         for key in ["guesses", "calc_time", "online_throttled", "offline_slow", "offline_fast"]:
-            crack_effort_layout.addWidget(self.labels[key])
+            crack_effort_layout.addWidget(labels[key])
         crack_effort_group.setLayout(crack_effort_layout)
 
-        self.show_details_checkbox = QCheckBox("Show detailed analysis")
-        self.show_details_checkbox.stateChanged.connect(self.toggle_details_visibility)
+        show_details_checkbox = QCheckBox("Show detailed analysis")
+        
+        # Container widget for details text and entropy chart stacked vertically
+        details_container = QWidget()
+        details_layout = QVBoxLayout()
+        details_container.setLayout(details_layout)
 
-        self.details = QTextEdit()
-        self.details.setReadOnly(True)
-        self.details.setPlaceholderText("Check the box above to show detailed analysis.")
-        self.details.setText("")
+        details = QTextEdit()
+        details.setReadOnly(True)
+        details.setPlaceholderText("Check the box above to show detailed analysis.")
+        details.setText("")
+        details_layout.addWidget(details)
 
-        self.input.textChanged.connect(self.update_feedback)
+        entropy_chart = EntropyChart()
+        entropy_chart.hide()  # Initially hidden
+        details_layout.addWidget(entropy_chart)
 
-        layout.addWidget(self.label)
-        layout.addWidget(self.input)
-        layout.addWidget(self.progress)
-        layout.addWidget(self.result)
+        # Manage visibility
+        def toggle_details(state, i=index):
+            section = self.sections[i]
+            if state == 2:
+                section["details"].setPlaceholderText("Detailed password analysis will appear here...")
+                section["details"].setText(section.get("_last_details_text", ""))
+                section["entropy_chart"].show()
+            else:
+                section["details"].setPlaceholderText("Check the box above to show detailed analysis.")
+                section["details"].clear()
+                section["entropy_chart"].hide()
+
+        show_details_checkbox.stateChanged.connect(toggle_details)
+
+        # Add widgets to layout
+        layout.addWidget(label)
+        layout.addWidget(input_field)
+        layout.addWidget(progress)
+        layout.addWidget(result)
         layout.addWidget(crack_effort_group)
-        layout.addWidget(self.show_details_checkbox)  # Checkbox above QTextEdit
-        layout.addWidget(self.details)
+        layout.addWidget(show_details_checkbox)
+        layout.addWidget(details_container)
 
-        self.setLayout(layout)
-        self.update_feedback("")
+        entropy_chart = EntropyChart()
+        layout.addWidget(entropy_chart)
 
-    def toggle_details_visibility(self, state):
-        if state == 2:  # Checked
-            self.details.setPlaceholderText("Detailed password analysis will appear here...")
-            self.details.setText(self._last_details_text if hasattr(self, "_last_details_text") else "")
-        else:
-            self.details.setPlaceholderText("Check the box above to show detailed analysis.")
-            self.details.clear()
+        return {
+            "layout": layout,
+            "input": input_field,
+            "progress": progress,
+            "result": result,
+            "labels": labels,
+            "details": details,
+            "checkbox": show_details_checkbox,
+            "entropy_chart": entropy_chart,
+        }
 
-    def update_feedback(self, password: str):
-        score, feedback, analysis, guesses, calc_time, crack_times_display = evaluate_password(password)
-        self.progress.setValue(score)
-
-        # Build detailed feedback
-        guesses_str = f"{guesses:,}" if guesses else "N/A"
-        calc_time_str = f"{calc_time:.2f} seconds" if calc_time else "N/A"
-
-        # Pick some common cracking scenarios to display
-        offline_fast = crack_times_display.get('offline_fast_hashing_1e10_per_second', 'N/A')
-        offline_slow = crack_times_display.get('offline_slow_hashing_1e4_per_second', 'N/A')
-        online_throttled = crack_times_display.get('online_throttling_100_per_hour', 'N/A')
+    def update_feedback(self, index: int, password: str):
+        section = self.sections[index]
+        score, feedback, analysis, guesses, crack_times_display = evaluate_password(password)
+        section["progress"].setValue(score)
 
         guesses_str = f"{guesses:,}" if guesses else "N/A"
-        calc_time_str = f"{calc_time:.2f} seconds" if calc_time else "N/A"
 
         offline_fast = crack_times_display.get('offline_fast_hashing_1e10_per_second', 'N/A')
         offline_slow = crack_times_display.get('offline_slow_hashing_1e4_per_second', 'N/A')
         online_throttled = crack_times_display.get('online_throttling_100_per_hour', 'N/A')
 
-        # Update each label individually
-        self.labels["guesses"].setText(f"🔐 Estimated guesses needed: {guesses_str}")
-        self.labels["calc_time"].setText(f"⏱️ Estimated calc time: {calc_time_str}")
-        self.labels["online_throttled"].setText(f"🌐 Crack time (online throttled): {online_throttled}")
-        self.labels["offline_slow"].setText(f"🐢 Crack time (offline slow, 10K/sec): {offline_slow}")
-        self.labels["offline_fast"].setText(f"💻 Crack time (offline fast, 10B/sec): {offline_fast}")
+        # Update labels
+        section["labels"]["guesses"].setText(f"🔐 Estimated guesses needed: {guesses_str}")
+        section["labels"]["online_throttled"].setText(f"🌐 Crack time (online throttled): {online_throttled}")
+        section["labels"]["offline_slow"].setText(f"🐢 Crack time (offline slow): {offline_slow}")
+        section["labels"]["offline_fast"].setText(f"💻 Crack time (offline fast): {offline_fast}")
 
-        self.result.setText(feedback)
+        section["result"].setText(feedback)
 
         details_text = self.format_sequence_matches(analysis)
-        self._last_details_text = details_text
+        section["_last_details_text"] = details_text
 
-        if self.show_details_checkbox.isChecked():
-            self.details.setText(details_text)
+        if section["checkbox"].isChecked():
+            section["details"].setText(details_text)
+            section["entropy_chart"].show()
         else:
-            self.details.clear()
+            section["details"].clear()
+            section["entropy_chart"].hide()
 
+        section["entropy_chart"].update_chart(password, analysis.get("sequence", []))
 
     def format_sequence_matches(self, analysis: dict) -> str:
         sequences = analysis.get('sequence', [])
