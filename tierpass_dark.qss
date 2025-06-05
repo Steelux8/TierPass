@@ -1,0 +1,59 @@
+
+/* Base background */
+QWidget {
+    background-color: #1e1e1e;
+    color: #dcdcdc;
+    font-family: "Segoe UI", "DejaVu Sans", sans-serif;
+    font-size: 13px;
+}
+
+/* Labels */
+QLabel {
+    color: #ffffff;
+}
+
+/* Input fields */
+QLineEdit {
+    background-color: #2b2b2b;
+    border: 1px solid #555;
+    border-radius: 4px;
+    padding: 6px;
+    color: #ffffff;
+    selection-background-color: #007acc;
+}
+
+/* Eye toggle button */
+QToolButton {
+    border: none;
+    background: transparent;
+}
+QToolButton:hover {
+    background-color: #3c3c3c;
+    border-radius: 4px;
+}
+
+/* Progress bar */
+QProgressBar {
+    border: 1px solid #444;
+    border-radius: 4px;
+    text-align: center;
+    background-color: #2b2b2b;
+    color: #ffffff;
+}
+QProgressBar::chunk {
+    background-color: #007acc;
+    width: 10px;
+    margin: 0.5px;
+}
+
+/* Buttons (if added later) */
+QPushButton {
+    background-color: #3c3c3c;
+    color: #ffffff;
+    border: 1px solid #555;
+    border-radius: 4px;
+    padding: 6px;
+}
+QPushButton:hover {
+    background-color: #505050;
+}
