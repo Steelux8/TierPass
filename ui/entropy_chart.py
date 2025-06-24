@@ -1,5 +1,5 @@
-from PyQt6.QtWidgets import QGraphicsView, QGraphicsScene, QGraphicsRectItem
-from PyQt6.QtGui import QColor, QBrush
+from PyQt6.QtWidgets import QGraphicsView, QGraphicsScene, QGraphicsRectItem, QGraphicsTextItem
+from PyQt6.QtGui import QColor, QBrush, QPen, QFont
 from PyQt6.QtCore import QRectF
 
 class EntropyChart(QGraphicsView):
@@ -45,6 +45,36 @@ class EntropyChart(QGraphicsView):
             pattern = match.get('pattern', 'default')
             color = self.PATTERN_COLORS.get(pattern, self.PATTERN_COLORS['default'])
             rect.setBrush(QBrush(color))
-            rect.setToolTip(f"{pattern.capitalize()}: '{match.get('token', '')}'")
-            rect.setPen(QColor(0, 0, 0, 30))  # subtle outline
+            
+            token = match.get('token', '')
+            pattern = match.get('pattern', 'default')
+            guesses_log10 = match.get('guesses_log10', 0)
+            entropy_bits = round(guesses_log10 * 3.32, 1)
+
+            tooltip = (
+                f"{pattern.capitalize()}: '{token}'\n"
+                f"Estimated entropy: ~{entropy_bits} bits"
+            )
+            rect.setToolTip(tooltip)
+
+            # Add the text label (token) centered on the rectangle
+            text_label = f"{token} ({entropy_bits:.0f}b)"
+            text_item = QGraphicsTextItem(text_label)
+            font = QFont("Arial", 8)
+            text_item.setFont(font)
+
+            text_rect = text_item.boundingRect()
+            text_x = x + (w - text_rect.width()) / 2
+            text_y = (height - text_rect.height()) / 2
+            text_item.setPos(text_x, text_y)
+
+            # Optional: ensure text is readable by setting z-order and text color
+            text_item.setZValue(1)
+            text_item.setDefaultTextColor(QColor("black") if color.lightness() > 64 else QColor("white"))
+
+            self._scene.addItem(text_item)
+
+            pen = QPen(QColor(0, 0, 0))  # opaque black
+            pen.setWidth(2)  # 2-pixel border
+            rect.setPen(pen)
             self._scene.addItem(rect)
