@@ -1,8 +1,10 @@
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
-    QProgressBar, QTextEdit, QCheckBox, QGroupBox
+    QProgressBar, QTextEdit, QCheckBox, QGroupBox, QPushButton
 )
+from PyQt6.QtCore import Qt
 from core.evaluate_password import evaluate_password
+from core.password_generator import generate_strong_password
 from ui.entropy_chart import EntropyChart
 
 
@@ -76,6 +78,14 @@ class MainWindow(QWidget):
 
         progress = QProgressBar()
         progress.setRange(0, 4)
+        
+        generate_btn = None
+        if index == 0:
+            generate_btn = QPushButton("Generate Word Password")
+            generate_btn.clicked.connect(lambda _, i=index: self.fill_generated_password(i))
+        if index == 1:
+            generate_btn = QPushButton("Generate Symbol Password")
+            generate_btn.clicked.connect(lambda _, i=index: self.fill_generated_password(i))
 
         result = QLabel()
 
@@ -133,6 +143,16 @@ class MainWindow(QWidget):
         layout.addWidget(label)
         layout.addWidget(input_field)
         layout.addWidget(progress)
+
+        # Feedback + optional generate button in same horizontal layout
+        feedback_row = QHBoxLayout()
+        feedback_row.addWidget(result)
+
+        if generate_btn:  # only for section #2
+            feedback_row.addStretch()  # push the button to the right
+            feedback_row.addWidget(generate_btn)
+
+        layout.addLayout(feedback_row)
         layout.addWidget(result)
         layout.addWidget(crack_effort_group)
         layout.addWidget(show_details_checkbox)
@@ -152,6 +172,18 @@ class MainWindow(QWidget):
             "entropy_chart": entropy_chart,
         }
 
+    def fill_generated_password(self, index: int):
+        """
+        Generate a strong password and drop it
+        into the second (index 1) input field.
+        """
+        if index == 0:
+            pwd = generate_strong_password(style="words")
+            self.sections[0]["input"].setText(pwd)
+        elif index == 1:
+            pwd = generate_strong_password(style="symbols")
+            self.sections[1]["input"].setText(pwd)
+    
     def update_feedback(self, index: int, password: str):
         section = self.sections[index]
         score, feedback, analysis, guesses, crack_times_display = evaluate_password(password)
