@@ -184,9 +184,47 @@ class MainWindow(QWidget):
             pwd = generate_strong_password(style="symbols")
             self.sections[1]["input"].setText(pwd)
     
+    def contextual_feedback(self, sequence: list[dict]) -> list[str]:
+        feedback = []
+
+        for match in sequence:
+            token = match.get('token', '')
+            pattern = match.get('pattern', 'unknown')
+
+            if pattern == 'repeat':
+                feedback.append(f"⚠️ Repeated sequence found: '{token}'")
+            elif pattern == 'sequence':
+                name = match.get('sequence_name', 'sequence')
+                feedback.append(f"⚠️ Predictable sequence: '{token}' ({name})")
+            elif pattern == 'spatial':
+                graph = match.get('graph', '')
+                feedback.append(f"⚠️ Keyboard pattern: '{token}' ({graph})")
+            elif pattern == 'dictionary':
+                dict_name = match.get('dictionary_name', '')
+                feedback.append(f"⚠️ Common word found: '{token}' ({dict_name})")
+            elif pattern == 'date':
+                year = match.get('year')
+                feedback.append(f"⚠️ Date detected in password: '{token}' (Year: {year})")
+            elif pattern == 'regex':
+                feedback.append(f"⚠️ Regex pattern match: '{token}'")
+            elif pattern == 'bruteforce':
+                feedback.append(f"⚠️ Weak segment: '{token}' appears random but short")
+
+        return feedback
+    
     def update_feedback(self, index: int, password: str):
         section = self.sections[index]
-        score, feedback, analysis, guesses, crack_times_display = evaluate_password(password)
+        score, base_feedback, result, guesses, crack_times_display = evaluate_password(password)
+        sequence = result.get('sequence', [])
+
+        # Get contextual observations
+        context_lines = self.contextual_feedback(sequence)
+
+        # Combine base feedback with contextual notes
+        feedback = base_feedback.strip()
+        if context_lines:
+            feedback += "\n\n" + "\n".join(context_lines)
+            
         section["progress"].setValue(score)
 
         guesses_str = f"{guesses:,}" if guesses else "N/A"
@@ -216,9 +254,14 @@ class MainWindow(QWidget):
         section["entropy_chart"].update_chart(password, analysis.get("sequence", []))
 
     def format_sequence_matches(self, analysis: dict) -> str:
+        password = analysis.get('password', '')
+        if not password:
+            return "No password entered. Please type or generate one to see feedback."
+
         sequences = analysis.get('sequence', [])
         if not sequences:
             return "No notable patterns found. Password appears strong."
+
 
         lines = []
         for match in sequences:

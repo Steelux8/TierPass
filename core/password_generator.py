@@ -11,19 +11,31 @@ _ALPHABET = (
     "!@#$%^&*()-_=+[]{}"
 )
 
-def _random_password_words(length: int = 30) -> str:
-    # Load wordlist from a local file or fallback to a small list
-    wordlist_path = "/usr/share/dict/words"  # or ship your own wordlist file
+def _random_password_words(length: int = 20) -> str:
+    # Load wordlist
+    wordlist_path = "/usr/share/dict/words"
     if os.path.exists(wordlist_path):
         with open(wordlist_path) as f:
             words = [w.strip().lower() for w in f if 3 <= len(w.strip()) <= 8 and w.isalpha()]
     else:
-        # fallback list
         words = ["apple", "green", "flame", "lucky", "monkey", "river", "stone", "guitar", "storm", "rabbit"]
-    
-    return ' '.join(secrets.choice(words) for _ in range(length // 5)).strip()[:length].replace(' ', '_')
 
-def _random_password_symbols(length: int = 20) -> str:
+    words = list(set(words))  # remove duplicates in wordlist itself just in case
+    secrets.SystemRandom().shuffle(words)  # shuffle to randomize selection
+
+    chosen = []
+    total_length = 0
+
+    for word in words:
+        capitalized = word.capitalize()
+        if total_length + len(capitalized) > length:
+            break
+        chosen.append(capitalized)
+        total_length += len(capitalized)
+
+    return ''.join(chosen)
+
+def _random_password_symbols(length: int = 16) -> str:
     """Return a single random password of `length` characters."""
     return ''.join(secrets.choice(_ALPHABET) for _ in range(length))
 
