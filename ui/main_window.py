@@ -214,8 +214,8 @@ class MainWindow(QWidget):
     
     def update_feedback(self, index: int, password: str):
         section = self.sections[index]
-        score, base_feedback, result, guesses, crack_times_display = evaluate_password(password)
-        sequence = result.get('sequence', [])
+        score, base_feedback, analysis, guesses, crack_times_display = evaluate_password(password)
+        sequence = analysis.get('sequence', [])
 
         # Get contextual observations
         context_lines = self.contextual_feedback(sequence)
@@ -224,7 +224,7 @@ class MainWindow(QWidget):
         feedback = base_feedback.strip()
         if context_lines:
             feedback += "\n\n" + "\n".join(context_lines)
-            
+
         section["progress"].setValue(score)
 
         guesses_str = f"{guesses:,}" if guesses else "N/A"
